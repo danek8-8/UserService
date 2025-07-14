@@ -1,4 +1,4 @@
-//const path = require('path');
+
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { poolPromise, sql } = require('../config/db'); // Убедитесь, что путь к db.js правильный
@@ -6,7 +6,7 @@ const validator = require('validator');
 require('dotenv').config(); // Загружает переменные окружения из .env файла
 const { JWT_SECRET } = require('../utils/jwt'); // Убедитесь, что путь к jwt.js правильный
 
-//const {User, setUserInstance} = require('../model/userModel')
+
 
 // --- Вспомогательные функции ---
 
@@ -115,7 +115,7 @@ const login = async (req, res, next) => {
   if (!validateEmail(email)) {
     // Не уточняем, что именно неверно (email или пароль)
     const error = 'Неверный email или пароль.';
-    error.statusCode = 401; // 401 Unauthorized
+    error.statusCode = 401; 
     res.json(error)
     return next(error);
   }
@@ -160,7 +160,7 @@ const login = async (req, res, next) => {
     const token = jwt.sign(
       payload,
       JWT_SECRET,
-      { expiresIn: '1h' } // Установите желаемое время жизни токена
+      { expiresIn: '1h' } 
     );
     
     // 7. Успешный ответ с токеном
@@ -202,7 +202,7 @@ const getUsers = async (req, res) => {
 };
 
 // Блокировка пользователя
-const blockUser = async (req, res) => {
+/*const blockUser = async (req, res) => {
     //const userId = req.params.id; // Получаем userId из параметров запроса
 
     try { 
@@ -226,7 +226,7 @@ const blockUser = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
-};
+};*/
 
 
 module.exports = {
