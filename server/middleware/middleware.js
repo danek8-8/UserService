@@ -44,8 +44,31 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// --- Middleware для проверки JWT (Админка) ---
+const adminToken = (req, res, next) => {
+  const adminHeader = req.headers['adminauthorization']; // Извлекаем админский токен
+  const adminToken = adminHeader && adminHeader.split(' ')[1];
+
+  if (!adminToken) {
+    return res.status(401).json({ message: 'Требуется админка.' });
+  }
+
+  jwt.verify(adminToken, JWT_SECRET, (err, userPayload) => {
+    if (err) {
+      console.log('Ошибка верификации JWT:', err.message);
+      return res.status(403).json({ message: 'Невалидный или истекший токен.' });
+    }
+    if (userPayload.role !== 'admin') {
+      return res.status(403).json({ message: 'Нет доступа. Вы не администратор.' });
+    }
+    req.user = userPayload; // Добавляем данные пользователя
+    next(); // Передаем управление следующему обработчику
+  });
+};
+
 module.exports = {
   loginLimiter,
   registerLimiter,
   authenticateToken,
+  adminToken
 };

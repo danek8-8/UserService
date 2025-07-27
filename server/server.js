@@ -4,8 +4,8 @@ const cors = require('cors'); // Для разрешения кросс-доме
 
 const helmet = require('helmet'); // Для установки заголовков безопасности HTTP
 
-const { loginLimiter, registerLimiter, authenticateToken } = require('./middleware/middleware');
-const { register, login, getUserById, getUsers, blockUser } = require('./controlers/controllers');
+const { loginLimiter, registerLimiter, authenticateToken, adminToken } = require('./middleware/middleware');
+const { register, login, getUserById, getUsers, blockUser, profile } = require('./controlers/controllers');
 
 // Инициализация Express приложения
 const app = express();
@@ -24,20 +24,22 @@ app.use(cors ({origin: 'http://localhost:8080',}));
 app.use(bodyParser.json());
 
 // Регистрация пользователя
-app.post('/register', registerLimiter, register) // (путь маршрута, middleware, контроллер)
+app.post('/api/register', registerLimiter, register) // (путь маршрута, middleware, контроллер)
 
 // Авторизация пользователя (вход)
-app.post('/login', loginLimiter, login) // (путь маршрута, middleware, контроллер)
+app.post('/api/login', loginLimiter, login) // (путь маршрута, middleware, контроллер)
 
+// Профиль пользователя
+app.get('/api/profile', authenticateToken, profile);
 
 // Получение пользователя по ID
-app.get('/user', authenticateToken, getUserById);
+app.get('/api/users/:id', authenticateToken, adminToken, getUserById);
 
 // Получение списка пользователей (только для админов)
-app.get('/users', authenticateToken, getUsers);
+app.get('/api/users', authenticateToken, adminToken, getUsers);
 
 // Блокировка пользователя
-app.patch('/user/block', authenticateToken, blockUser);
+app.patch('/api/users/:id/block', authenticateToken, adminToken, blockUser);
 
 
 app.use((req, res, next) => {

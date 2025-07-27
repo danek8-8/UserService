@@ -30,18 +30,27 @@ export default {
   methods: {
     async loginUser() {
       try {
-        const response = await axios.post('http://localhost:5000/login', {
+        const response = await axios.post('http://localhost:5000/api/login', {
           email: this.email,
           password: this.password,
         });
-        // Сохраните JWT токен (например, в localStorage) и выполните редирект
-        localStorage.setItem('token', response.data.token);
 
-        //const userId = response.data.userId //Вставил код
-        //await axios.get(`http://localhost:5000/user/${userId}`); //Вставил код
-
-        // Перенаправление на страницу входа после успешной регистрации
-        this.$router.push('/main');
+        if (response.data && response.data.authToken){
+          // Сохраните JWT токен (например, в localStorage) и выполните редирект
+          localStorage.setItem('authToken', response.data.authToken);
+          
+          // Проверяем наличие adminToken
+          if (response.data.adminToken && response.data.adminToken.trim() !== '') {
+            localStorage.setItem('adminToken', response.data.adminToken);
+          } else {
+            localStorage.removeItem('adminToken');
+          }
+          // Перенаправление на страницу входа после успешной регистрации
+          this.$router.push('/profile');
+        }
+        else {
+          this.errorMessage = response.data.errormessage;
+        }
       } catch (error) {
         // *** ИЗМЕНЕНО: Улучшенная обработка ошибок ***
         this.errorMessage = error.response?.data?.message // Сообщение от сервера (предпочтительно)

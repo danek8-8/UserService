@@ -48,16 +48,22 @@ export default {
   methods: {
     async registerUser() {
       try {
-        await axios.post('http://localhost:5000/register', {
+        const response = await axios.post('http://localhost:5000/api/register', {
           fullName: this.fullName,
           dateOfBirth: this.dateOfBirth,
           email: this.email,
           password: this.password,
           role: this.role,
         });
-        // Здесь можно добавить редирект на страницу входа или другую страницу после успешной регистрации
-        // Перенаправление на страницу входа после успешной регистрации
-        this.$router.push('/login');
+
+        if (response.data.errormessage === null && response.data.errormessage === ''){
+          // Здесь можно добавить редирект на страницу входа или другую страницу после успешной регистрации
+          // Перенаправление на страницу входа после успешной регистрации
+          this.$router.push('/login');
+        }
+        else{
+          this.errorMessage = response.data.errormessage;
+        }
       } catch (error) {
         // *** ИЗМЕНЕНО: Улучшенная обработка ошибок ***
         this.errorMessage = error.response?.data?.message // Сообщение от сервера (предпочтительно)

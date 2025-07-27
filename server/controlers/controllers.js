@@ -1,10 +1,11 @@
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { poolPromise, sql } = require('../config/db'); // Убедитесь, что путь к db.js правильный
+const { poolPromise, sql } = require('../config/db'); 
 const validator = require('validator');
 require('dotenv').config(); // Загружает переменные окружения из .env файла
-const { JWT_SECRET } = require('../utils/jwt'); // Убедитесь, что путь к jwt.js правильный
+const { JWT_SECRET } = require('../utils/jwt'); 
+
 
 
 
@@ -38,31 +39,31 @@ const register = async (req, res, next) => {
   if (!email || !password ) {
     const error = 'Все поля обязательны для заполнения.';
     error.statusCode = 400;
-    res.json(error)
+    res.json({errormessage: error})
     return next(error); // Передаем ошибку дальше
   }
   if (!validateEmail(email)) {
     const error = 'Неверный формат email.';
     error.statusCode = 400;
-    res.json(error)
+    res.json({errormessage: error})
     return next(error);
   }
   if (email.length > 255) {
     const error = 'Email слишком длинный.';
     error.statusCode = 400;
-    res.json(error)
+    res.json({errormessage: error})
     return next(error);
   }
   if (!validatePassword(password)) {
     const error = 'Пароль должен содержать минимум 8 символов, включая заглавную букву, цифру и специальный символ.';
     error.statusCode = 400;
-    res.json(error)
+    res.json({errormessage: error})
     return next(error);
   }
   if (password.length > 70) {
     const error = 'Пароль слишком длинный.';
     error.statusCode = 400;
-    res.json(error)
+    res.json({errormessage: error})
     return next(error);
   }
 
@@ -77,7 +78,7 @@ const register = async (req, res, next) => {
     if (existingUser.recordset.length > 0) {
       const error = 'Пользователь с таким email уже существует.';
       error.statusCode = 409; // 409 Conflict более подходящий статус
-      res.json(error)
+      res.json({errormessage: error})
       return next(error);
     }
 
@@ -109,14 +110,14 @@ const login = async (req, res, next) => {
   if (!email || !password) {
     const error = 'Все поля обязательны для заполнения.';
     error.statusCode = 400;
-    res.json(error)
+    res.json({errormessage: error})
     return next(error);
   }
   if (!validateEmail(email)) {
     // Не уточняем, что именно неверно (email или пароль)
     const error = 'Неверный email или пароль.';
     error.statusCode = 401; 
-    res.json(error)
+    res.json({errormessage: error})
     return next(error);
   }
 
@@ -133,7 +134,7 @@ const login = async (req, res, next) => {
       await randomDelay(200, 500);
       const error = 'Неверный email или пароль.';
       error.statusCode = 401;
-      res.json(error)
+      res.json({errormessage: error})
       return next(error);
     }
 
@@ -144,7 +145,7 @@ const login = async (req, res, next) => {
       await randomDelay(200, 500);
       const error = 'Неверный email или пароль.';
       error.statusCode = 401;
-      res.json(error)
+      res.json({errormessage: error})
       return next(error);
     }
 
@@ -157,14 +158,29 @@ const login = async (req, res, next) => {
       role: user.Role,
       isActive: user.IsActive
     };
-    const token = jwt.sign(
+    const authToken = jwt.sign(
       payload,
       JWT_SECRET,
       { expiresIn: '1h' } 
     );
+
+    let adminToken = null;
+
+    if (user.Role === 'admin'){
+      const adminPayload = {
+        userId: user.UserId,
+        email: user.Email,
+        role: user.Role,
+      };
+      adminToken = jwt.sign(
+      adminPayload,
+      JWT_SECRET,
+      { expiresIn: '1h' } 
+    );
+    }
     
     // 7. Успешный ответ с токеном
-    res.status(200).json({ message: 'Успешный вход!', token: token, userId: user.UserId }); // поменял код
+    res.status(200).json({ message: 'Успешный вход!', authToken, adminToken }); // поменял код
   } catch (err) {
     // 8. Передача ошибки базы данных или другой серверной ошибки
     console.error('Ошибка при авторизации:', err);
@@ -172,17 +188,33 @@ const login = async (req, res, next) => {
   }
 };
 
+// Профиль пользователя
+const profile = async (req, res) => {
+  const { userId, email, fullName, dateOfBirth, role, isActive } = req.user;
+
+  try {
+    if (isActive === false){
+      res.json({errormessage: 'Вас заблокировали'})
+    }
+    res.json({ userId, email, fullName, dateOfBirth, role, isActive });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Получение пользователя по ID
 const getUserById = async (req, res) => {
-     /*const userId = req.params.id;*/
-    const { userId, email, fullName, dateOfBirth, role, isActive } = req.user; // user берется из middleware
+    const userId = req.params.id;
 
     try {
-        /*const result = await sql.query(SELECT * FROM Users WHERE UserId = ${userId});
-        const user = result.recordset[0];*/
+        const pool = await poolPromise;
+        const result = await pool.request()
+        .input('UserID', sql.Int, userId)
+        .query('SELECT * FROM Users WHERE UserID = @UserID');
+        const users = result.recordset[0];
 
-        /*if (!user) return res.status(404).json({ message: 'Пользователь не найден!' });*/
-        res.json({ userId, email, fullName, dateOfBirth, role, isActive });
+        if (!users) return res.status(404).json({ message: 'Пользователь не найден!' });
+        res.json({ users});
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -192,7 +224,7 @@ const getUserById = async (req, res) => {
 const getUsers = async (req, res) => {
     try {
         const pool = await poolPromise;
-        const result = await pool.query('SELECT UserId, FullName, DateOfBirth, Email, Role, IsActive FROM Users');
+        const result = await pool.query('SELECT UserID, FullName, DateOfBirth, Email, Role, IsActive FROM Users');
         const users = result.recordset; // Массив из данных в БД
 
         res.json({users});
@@ -202,36 +234,44 @@ const getUsers = async (req, res) => {
 };
 
 // Блокировка пользователя
-/*const blockUser = async (req, res) => {
-    //const userId = req.params.id; // Получаем userId из параметров запроса
+const blockUser = async (req, res) => {
+  const userId = req.params.id; // Получаем userId из параметров запроса
+  const {role} = req.body;
 
-    try { 
-        const pool = await poolPromise;
-        const result = await pool.query(`SELECT * FROM Users WHERE UserID = ${userId}`);
-        if (!result.recordset.length) {
-            return res.status(404).json({ message: 'Пользователь не найден!' });
-        }
-
-        // Проверка прав доступа
-        const loggedUserId = req.user.UserId; // id из токена
-        const loggedUserRole = req.user.Role; // роль из токена
-
-        if (loggedUserRole !== 'admin' && loggedUserId !== userId) {
-            return res.status(403).json({ message: 'Запрещено!' });
-        }
-
-        const query = `UPDATE Users SET IsActive = 0 WHERE UserID = @Id`;
-        await pool.query(query, { Id: userId });
-        res.json({ message: 'Пользователь заблокирован!' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+  try { 
+    const pool = await poolPromise;
+    const result = await pool.request()
+    .input('UserID', sql.Int, userId)
+    .query('SELECT * FROM Users WHERE UserID = @UserID');
+    if (!result.recordset.length) {
+      return res.status(404).json({ message: 'Пользователь не найден!' });
     }
-};*/
+
+    // Проверка прав доступа
+    //const loggedUserId = req.user.UserID; // id из токена
+    const loggedUserRole = req.user.Role; // роль из токена
+
+    const blockedUserRole = role;
+
+    if (loggedUserRole !== 'admin' && blockedUserRole !== 'user') {
+      return res.status(403).json({ message: 'Запрещено!' });
+    }
+
+    
+    await pool.request()
+    .input('UserID', sql.Int, userId)
+    .query('UPDATE Users SET IsActive = 0 WHERE UserID = @UserID');
+    res.json({ message: 'Пользователь заблокирован!' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 
 module.exports = {
   register,
   login,
+  profile,
   getUserById,
   getUsers,
   blockUser
